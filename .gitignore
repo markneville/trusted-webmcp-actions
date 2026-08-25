@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+coverage/
+.DS_Store
+*.log
+*.tsbuildinfo
+.env*
+!.env.example
+
+# Internal competition planning; retained locally, never published with the clean-room app.
+report-source.md
+webmcp-winning-strategy.md
