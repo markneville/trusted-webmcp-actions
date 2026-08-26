@@ -1,6 +1,8 @@
 import {
+  executeApprovedCheckoutFix,
   getIncidentState,
   inspectIncident,
+  proposeCheckoutFix,
   shiftTraffic,
   subscribeToIncident,
 } from "@/lib/incident-store";
@@ -70,6 +72,74 @@ const shiftTool: WebMcpTool = {
   },
 };
 
+const proposeFixTool: WebMcpTool = {
+  name: "propose_checkout_fix_deploy",
+  title: "Propose checkout fix deployment",
+  description:
+    "Stage a checkout-api reference release for explicit human review after the incident is stabilised. This tool does not deploy the release or change the current version. It creates a visible review request and returns review_required with the exact reviewRequestId.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      proposedVersion: {
+        type: "string",
+        pattern: "^checkout-[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}\\.[0-9]+$",
+        description: "Reference release identifier, for example checkout-2026.08.25.1.",
+      },
+      reason: {
+        type: "string",
+        minLength: 12,
+        maxLength: 220,
+        description: "Why this exact release should replace the current checkout-api version.",
+      },
+    },
+    required: ["proposedVersion", "reason"],
+    additionalProperties: false,
+  },
+  annotations: {
+    readOnlyHint: false,
+    untrustedContentHint: false,
+  },
+  execute: async (input) => {
+    const proposedVersion =
+      typeof input.proposedVersion === "string" ? input.proposedVersion : "";
+    const reason = typeof input.reason === "string" ? input.reason : "";
+    return proposeCheckoutFix(proposedVersion, reason);
+  },
+};
+
+function buildExecuteFixTool(
+  reviewRequestId: string,
+  proposedVersion: string,
+): WebMcpTool {
+  return {
+    name: "execute_approved_checkout_fix",
+    title: "Execute approved checkout fix",
+    description:
+      `Execute the exact one-time human-approved review ${reviewRequestId}, bound to ${proposedVersion}, and update the visible reference release. Use only after approval appears in the page. A successful call consumes the approval and removes this tool.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        reviewRequestId: {
+          type: "string",
+          const: reviewRequestId,
+          description: "Exact review request ID returned by propose_checkout_fix_deploy.",
+        },
+      },
+      required: ["reviewRequestId"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      untrustedContentHint: false,
+    },
+    execute: async (input) => {
+      const requestedId =
+        typeof input.reviewRequestId === "string" ? input.reviewRequestId : "";
+      return executeApprovedCheckoutFix(requestedId);
+    },
+  };
+}
+
 export async function registerIncidentTools({
   mockInstalled,
   onToolsChanged,
@@ -87,12 +157,13 @@ export async function registerIncidentTools({
 
   const registrations = new Map<string, Registration>();
   let disposed = false;
-  let shiftRegistrationPending = false;
+  const pendingRegistrations = new Set<string>();
 
   const publishTools = () => onToolsChanged([...registrations.keys()].sort());
 
   const addTool = async (tool: WebMcpTool): Promise<void> => {
-    if (disposed || registrations.has(tool.name)) return;
+    if (disposed || registrations.has(tool.name) || pendingRegistrations.has(tool.name)) return;
+    pendingRegistrations.add(tool.name);
     const controller = new AbortController();
     try {
       await context.registerTool(tool, { signal: controller.signal });
@@ -106,6 +177,8 @@ export async function registerIncidentTools({
       if (controller.signal.aborted || disposed) return;
       const message = error instanceof Error ? error.message : "Unknown WebMCP registration error.";
       onRuntimeChanged("error", message);
+    } finally {
+      pendingRegistrations.delete(tool.name);
     }
   };
 
@@ -117,27 +190,66 @@ export async function registerIncidentTools({
     publishTools();
   };
 
-  const syncAuthorityTool = async (): Promise<void> => {
-    const active = getIncidentState().mandate.status === "active";
-    if (active && !registrations.has(shiftTool.name) && !shiftRegistrationPending) {
-      shiftRegistrationPending = true;
+  const syncAuthorityTools = async (): Promise<void> => {
+    const incident = getIncidentState();
+    const active = incident.mandate.status === "active";
+    if (active) {
       await addTool(shiftTool);
-      shiftRegistrationPending = false;
-    } else if (!active) {
+    } else {
       removeTool(shiftTool.name);
     }
+
+    const canPropose =
+      active &&
+      incident.status === "stable" &&
+      incident.review.status !== "pending" &&
+      incident.review.status !== "approved" &&
+      incident.review.status !== "executed";
+    if (canPropose) {
+      await addTool(proposeFixTool);
+    } else {
+      removeTool(proposeFixTool.name);
+    }
+
+    if (
+      active &&
+      incident.review.status === "approved" &&
+      incident.review.requestId &&
+      incident.review.proposedVersion
+    ) {
+      await addTool(
+        buildExecuteFixTool(incident.review.requestId, incident.review.proposedVersion),
+      );
+    } else {
+      removeTool("execute_approved_checkout_fix");
+    }
+  };
+
+  let authoritySync = Promise.resolve();
+  let authoritySyncTimer: ReturnType<typeof setTimeout> | null = null;
+  const queueAuthoritySync = (): Promise<void> => {
+    authoritySync = authoritySync.then(syncAuthorityTools);
+    return authoritySync;
+  };
+  const scheduleAuthoritySync = (): void => {
+    if (authoritySyncTimer !== null) return;
+    authoritySyncTimer = setTimeout(() => {
+      authoritySyncTimer = null;
+      void queueAuthoritySync();
+    }, 0);
   };
 
   onRuntimeChanged(mockInstalled ? "mock" : "native");
   await addTool(inspectTool);
-  await syncAuthorityTool();
   const unsubscribe = subscribeToIncident(() => {
-    void syncAuthorityTool();
+    scheduleAuthoritySync();
   });
+  await queueAuthoritySync();
 
   return () => {
     disposed = true;
     unsubscribe();
+    if (authoritySyncTimer !== null) clearTimeout(authoritySyncTimer);
     registrations.forEach(({ controller }) => controller.abort("Page unmounted."));
     registrations.clear();
     publishTools();

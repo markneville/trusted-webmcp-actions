@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   activateMandate,
+  approveFixReview,
   getIncidentState,
   getInitialIncidentState,
+  rejectFixReview,
   resetIncident,
   revokeMandate,
   subscribeToIncident,
@@ -59,7 +61,18 @@ function RuntimeBadge({ runtime }: { runtime: WebMcpRuntime | "connecting" }) {
 }
 
 function DecisionTag({ decision }: { decision: ActivityItem["decision"] }) {
-  return <span className={`decision-tag decision-${decision}`}>{decision}</span>;
+  return (
+    <span className={`decision-tag decision-${decision}`}>
+      {decision.replace("_", " ")}
+    </span>
+  );
+}
+
+function toolEffect(name: string): string {
+  if (name === "inspect_incident") return "Read-only";
+  if (name === "propose_checkout_fix_deploy") return "Stages review";
+  if (name === "execute_approved_checkout_fix") return "One-time effect";
+  return "State changing";
 }
 
 export default function Home() {
@@ -211,6 +224,10 @@ export default function Home() {
             <span>Scope</span>
             <strong>This page only</strong>
           </div>
+          <div>
+            <span>Release</span>
+            <strong>{incident.release.currentVersion}</strong>
+          </div>
         </div>
       </section>
 
@@ -283,15 +300,20 @@ export default function Home() {
           </div>
 
           <dl className="authority-list">
+            <div><dt>Delegated to</dt><dd>Browser agent session · TWA-SESSION-01</dd></div>
             <div><dt>Resource</dt><dd>checkout-api</dd></div>
             <div><dt>Permitted action</dt><dd>Reversible traffic shift</dd></div>
             <div><dt>Cumulative limit</dt><dd>{incident.mandate.usedShiftPercent}% used · {remainingShift}% remaining</dd></div>
+            <div><dt>Review boundary</dt><dd>Release change · approval once</dd></div>
             <div><dt>Expires</dt><dd>{formatExpiry(incident.mandate.expiresAt)}</dd></div>
           </dl>
 
           <div className="control-note">
             <strong>Governed path</strong>
-            <p>Only the registered traffic-shift tool is affected. Revocation blocks future calls and does not undo completed effects.</p>
+            <p>
+              Authority is bound to this reference browser-agent session. Release changes need
+              an exact one-time human approval; no native ChatGPT identity is claimed.
+            </p>
           </div>
 
           <div className="button-row">
@@ -351,6 +373,34 @@ export default function Home() {
                   >
                     Run mock 20% shift
                   </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={!availableTools.includes("propose_checkout_fix_deploy")}
+                    onClick={() =>
+                      void runMockTool("propose_checkout_fix_deploy", {
+                        proposedVersion: "checkout-2026.08.25.1",
+                        reason: "Deploy the tested fix after the reversible incident mitigation.",
+                      })
+                    }
+                  >
+                    Run mock fix proposal
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={
+                      !availableTools.includes("execute_approved_checkout_fix") ||
+                      !incident.review.requestId
+                    }
+                    onClick={() =>
+                      void runMockTool("execute_approved_checkout_fix", {
+                        reviewRequestId: incident.review.requestId,
+                      })
+                    }
+                  >
+                    Run mock approved fix
+                  </button>
                 </div>
                 {mockResult ? <pre aria-label="Latest mock tool result">{mockResult}</pre> : null}
               </div>
@@ -384,6 +434,34 @@ export default function Home() {
                   >
                     Run native 20% shift
                   </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={!availableTools.includes("propose_checkout_fix_deploy")}
+                    onClick={() =>
+                      void runNativeTool("propose_checkout_fix_deploy", {
+                        proposedVersion: "checkout-2026.08.25.1",
+                        reason: "Deploy the tested fix after the reversible incident mitigation.",
+                      })
+                    }
+                  >
+                    Run native fix proposal
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={
+                      !availableTools.includes("execute_approved_checkout_fix") ||
+                      !incident.review.requestId
+                    }
+                    onClick={() =>
+                      void runNativeTool("execute_approved_checkout_fix", {
+                        reviewRequestId: incident.review.requestId,
+                      })
+                    }
+                  >
+                    Run native approved fix
+                  </button>
                 </div>
                 {nativeResult ? (
                   <pre aria-label="Latest native WebMCP result">{nativeResult}</pre>
@@ -397,13 +475,113 @@ export default function Home() {
                 <li key={name}>
                   <span className="tool-dot" aria-hidden="true" />
                   <code>{name}</code>
-                  <span>{name === "inspect_incident" ? "Read-only" : "State changing"}</span>
+                  <span>{toolEffect(name)}</span>
                 </li>
               ))
             ) : (
               <li className="tool-empty">No native page tools are currently registered.</li>
             )}
           </ul>
+        </section>
+
+        <section
+          className={`panel review-panel review-${incident.review.status}`}
+          aria-labelledby="review-heading"
+          aria-live="polite"
+        >
+          <div className="panel-heading">
+            <div>
+              <p className="section-kicker">Agent → human → agent</p>
+              <h2 id="review-heading">One-time release review</h2>
+            </div>
+            <span className={`review-status review-status-${incident.review.status}`}>
+              {incident.review.status.replace("_", " ")}
+            </span>
+          </div>
+
+          <div className="review-layout">
+            <div className="review-copy">
+              {incident.review.status === "not_requested" ? (
+                <>
+                  <strong>No proposal is waiting</strong>
+                  <p>
+                    The active mandate can stabilise traffic, but it cannot change the release.
+                    The agent may stage an exact fix for human review without deploying it.
+                  </p>
+                  <code>
+                    Propose checkout-2026.08.25.1 as the tested checkout-api fix.
+                  </code>
+                </>
+              ) : (
+                <>
+                  <strong>
+                    {incident.review.proposedVersion ?? "Reference release proposal"}
+                  </strong>
+                  <p>{incident.review.reason ?? "No proposal reason recorded."}</p>
+                  <dl className="review-details">
+                    <div><dt>Request</dt><dd>{incident.review.requestId ?? "Not issued"}</dd></div>
+                    <div><dt>Requested by</dt><dd>Browser agent · TWA-SESSION-01</dd></div>
+                    <div><dt>Current release</dt><dd>{incident.release.currentVersion}</dd></div>
+                    <div><dt>Approval</dt><dd>{incident.review.approvalId ?? "Not granted"}</dd></div>
+                  </dl>
+                </>
+              )}
+            </div>
+
+            <div className="review-control">
+              {incident.review.status === "pending" ? (
+                <>
+                  <p>
+                    <strong>Why review?</strong> A release change sits outside the reversible
+                    traffic-shift mandate. Approval is bound to this request and expires in five
+                    minutes.
+                  </p>
+                  <div className="button-row">
+                    <button
+                      className="button button-primary"
+                      type="button"
+                      onClick={() => approveFixReview()}
+                    >
+                      Approve once
+                    </button>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => rejectFixReview()}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </>
+              ) : null}
+              {incident.review.status === "approved" ? (
+                <p>
+                  <strong>Execution tool now available.</strong> It is bound to {incident.review.requestId},
+                  expires at {formatExpiry(incident.review.approvalExpiresAt)}, and disappears after
+                  one successful call.
+                </p>
+              ) : null}
+              {incident.review.status === "executed" ? (
+                <p>
+                  <strong>Approval consumed.</strong> The visible reference release changed once;
+                  replaying the request is denied and the execution tool is no longer exposed.
+                </p>
+              ) : null}
+              {incident.review.status === "rejected" ? (
+                <p><strong>Proposal rejected.</strong> No release state changed.</p>
+              ) : null}
+              {incident.review.status === "cancelled" ? (
+                <p><strong>Review cancelled.</strong> Revocation or expiry removed the execution path.</p>
+              ) : null}
+              {incident.review.status === "not_requested" ? (
+                <p>
+                  <strong>WebMCP-native handoff.</strong> The proposal tool stages review; approval
+                  dynamically exposes a separate, narrowly bound completion tool.
+                </p>
+              ) : null}
+              <small>Reference page effect only · no external deployment or production system.</small>
+            </div>
+          </div>
         </section>
 
         <section className="panel activity-panel" aria-labelledby="activity-heading">
@@ -428,6 +606,7 @@ export default function Home() {
                   </div>
                   <p>{item.detail}</p>
                   <div className="activity-meta">
+                    <span className="activity-actor">{item.actor.replace("_", " ")}</span>
                     <span>{formatTimestamp(item.occurredAt)}</span>
                     {item.receiptId ? <code>{item.receiptId}</code> : null}
                   </div>

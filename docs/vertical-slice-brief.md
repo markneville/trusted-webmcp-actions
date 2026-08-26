@@ -4,14 +4,14 @@ Status: implementation brief
 
 Prepared: 25 August 2026
 
-Validation status: deterministic QA, public deployment, and native Chrome registry execution complete; ChatGPT model-selection acceptance remains pending.
+Validation status: original traffic-shift slice passed deterministic QA, public deployment, and native Chrome registry execution. The one-time review handoff has passed deterministic tests and local native Chrome execution; its public-origin rerun and ChatGPT model-selection acceptance remain pending.
 
 ## Purpose
 
 - **Dashboard/product:** a competition reference control room proving that a browser agent can inspect a seeded service incident and perform one bounded mitigation through genuine WebMCP.
-- **Top-level outcome:** an incident commander can see whether the service needs action, establish a short-lived mandate, and observe the agent move the live page from degraded to stable without exceeding a 25% traffic-shift limit.
+- **Top-level outcome:** an incident commander can establish a short-lived mandate, observe the agent move the live page from degraded to stable within a 25% traffic-shift limit, and approve an exact release change once without expanding the whole mandate.
 - **Why a dashboard is appropriate:** the human and agent must share current incident, authority, action, and evidence state while the human retains activation, revocation, and reset controls.
-- **Success condition:** in the ChatGPT in-app browser with a WebMCP-enabled model, the agent discovers `inspect_incident`, the human activates the mandate, `shift_incident_traffic` becomes available, the agent shifts 20%, and the visible page becomes stable. The complete reset-to-stable path succeeds five consecutive times.
+- **Success condition:** in the ChatGPT in-app browser with a WebMCP-enabled model, the agent stabilises the page, stages a release proposal, pauses while the human approves the exact request, resumes through a newly registered one-time execution tool, and cannot replay it. The complete reset-to-release path succeeds five consecutive times.
 
 ## Decisions and actions
 
@@ -31,6 +31,14 @@ Validation status: deterministic QA, public deployment, and native Chrome regist
 - **Evidence before action:** mandate state, expiry, current tool roster, activity entry.
 - **Limit:** revocation does not undo completed shifts. Reset is a reference-app convenience, not a production rollback claim.
 
+### Review and execute one exact release change
+
+- **User decision:** whether to approve the agent's exact proposed release once for five minutes.
+- **Question answered:** can an agent pause at an authority boundary and resume through a capability created by human approval?
+- **Evidence before action:** current and proposed versions, reason, browser-agent session, review request ID, approval ID, expiry, and current tool roster.
+- **State transition:** `propose_checkout_fix_deploy` creates `review_required` without changing the release; human approval registers `execute_approved_checkout_fix`; successful execution consumes the approval and unregisters that tool.
+- **Limit:** every effect is confined to seeded browser-page state; no external deployment is claimed.
+
 ## Audience and context
 
 - **Primary user and authority:** an incident commander evaluating a bounded browser-agent action.
@@ -47,7 +55,8 @@ Validation status: deterministic QA, public deployment, and native Chrome regist
 | Traffic allocation | In-page incident store | This browser page lifetime | `live_page_state` | Immediate after allowed action | Allocation values and activity timeline | Governed tool callback |
 | Mandate active/revoked/absent | In-page incident store | Current demo session | `reference_mandate_state` | Immediate after human control | Authority panel and tool roster | Human activate/revoke buttons |
 | WebMCP tool availability | Native `document.modelContext` registration result | Current page | `native_webmcp` or explicit `mock_harness` | Current registration lifecycle | Runtime status and tool roster | AbortController registration signals |
-| Allowed/denied result | Reference policy function | Current demo action | `reference_policy_decision` | Atomic with page-state mutation | Exact activity entry and receipt ID | `shiftTraffic` policy boundary |
+| Allowed/review/denied result | Reference policy function | Current demo action | `reference_policy_decision` | Atomic with page-state mutation or staged review | Exact activity entry and receipt ID | Shared traffic and release policy functions |
+| One-time execution capability | Page review state | Exact approved request | `reference_human_approval` | Added after approval; removed after execution/revocation | Tool roster, review panel, activity | AbortSignal-bound dynamic registration |
 
 ## Claim boundary
 
@@ -72,6 +81,8 @@ Validation status: deterministic QA, public deployment, and native Chrome regist
 - **Mock harness:** explicit non-judge development state.
 - **Live/current:** native tools registered and page state current.
 - **Permission denied:** absent, expired, revoked, or limit-exceeding mandate; no state change.
+- **Review pending:** proposal is visible, release is unchanged, and no execution tool exists.
+- **Approved once:** the exact completion tool exists until success, expiry, or revocation.
 - **Fixture/sample:** every incident metric is labelled as seeded reference state.
 - **Empty:** not applicable; reset restores the canonical seeded incident.
 - **Error:** registration errors surface beside runtime status and do not pretend tools are available.
