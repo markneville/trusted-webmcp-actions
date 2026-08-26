@@ -72,12 +72,17 @@ export default function Home() {
   const [runtimeMessage, setRuntimeMessage] = useState<string | null>(null);
   const [availableTools, setAvailableTools] = useState<string[]>([]);
   const [mockResult, setMockResult] = useState<string | null>(null);
+  const [nativeSelfTestEnabled, setNativeSelfTestEnabled] = useState(false);
+  const [nativeResult, setNativeResult] = useState<string | null>(null);
 
   useEffect(() => {
     let cleanup: () => void = () => undefined;
     let cancelled = false;
     const startTimer = window.setTimeout(() => {
       if (cancelled) return;
+      setNativeSelfTestEnabled(
+        new URLSearchParams(window.location.search).get("nativeSelfTest") === "1",
+      );
       const mockInstalled = installExplicitMockModelContext();
 
       void registerIncidentTools({
@@ -124,6 +129,39 @@ export default function Home() {
       setMockResult(
         JSON.stringify(
           { error: error instanceof Error ? error.message : "Unknown mock execution error." },
+          null,
+          2,
+        ),
+      );
+    }
+  };
+
+  const runNativeTool = async (
+    name: string,
+    input: Record<string, unknown> = {},
+  ): Promise<void> => {
+    try {
+      const context = document.modelContext;
+      if (!context?.getTools || !context.executeTool) {
+        throw new Error("This browser does not expose native WebMCP test execution.");
+      }
+      const tools = await context.getTools();
+      const tool = tools.find((candidate) => candidate.name === name);
+      if (!tool) throw new Error(`Native WebMCP tool ${name} is not registered.`);
+      const result = await context.executeTool(tool, JSON.stringify(input));
+      let displayResult = result;
+      if (typeof result === "string") {
+        try {
+          displayResult = JSON.parse(result);
+        } catch {
+          displayResult = result;
+        }
+      }
+      setNativeResult(JSON.stringify(displayResult ?? null, null, 2));
+    } catch (error) {
+      setNativeResult(
+        JSON.stringify(
+          { error: error instanceof Error ? error.message : "Unknown native execution error." },
           null,
           2,
         ),
@@ -315,6 +353,41 @@ export default function Home() {
                   </button>
                 </div>
                 {mockResult ? <pre aria-label="Latest mock tool result">{mockResult}</pre> : null}
+              </div>
+            </>
+          ) : null}
+          {runtime === "native" && nativeSelfTestEnabled ? (
+            <>
+              <p className="mock-warning" role="note">
+                Native browser registry self-test. This proves real browser invocation, not model
+                tool-selection accuracy.
+              </p>
+              <div className="mock-controls" aria-label="Native WebMCP self-test controls">
+                <div className="button-row">
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => void runNativeTool("inspect_incident")}
+                  >
+                    Run native inspect
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    disabled={!availableTools.includes("shift_incident_traffic")}
+                    onClick={() =>
+                      void runNativeTool("shift_incident_traffic", {
+                        shiftPercent: 20,
+                        reason: "Stabilise the seeded reference incident.",
+                      })
+                    }
+                  >
+                    Run native 20% shift
+                  </button>
+                </div>
+                {nativeResult ? (
+                  <pre aria-label="Latest native WebMCP result">{nativeResult}</pre>
+                ) : null}
               </div>
             </>
           ) : null}

@@ -30,6 +30,14 @@ http://localhost:3000/?mockWebMCP=1
 
 For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing` and relaunch Chrome, as described in the [official Chrome WebMCP guide](https://developer.chrome.com/docs/ai/webmcp). The separate `chrome://flags/#devtools-webmcp-support` flag enables the experimental DevTools inspection panel but is not required by the page itself.
 
+For a visibly labelled deterministic check through Chrome's real native registry, open:
+
+```text
+http://localhost:3000/?nativeSelfTest=1
+```
+
+This uses `document.modelContext.getTools()` and `executeTool()` to invoke the registered callbacks. It proves native browser registration and execution, but it does not replace the Sol/Terra model-selection evaluation below.
+
 1. Open the app in ChatGPT's built-in browser with a model that supports site tools.
 2. Confirm the page reports `Native WebMCP` and lists `inspect_incident`.
 3. Ask: `Inspect the incident and tell me the safest bounded mitigation available.`

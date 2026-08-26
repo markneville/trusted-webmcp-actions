@@ -30,6 +30,11 @@ type WebMcpModelContext = {
     options?: { signal?: AbortSignal; exposedTo?: string[] },
   ) => Promise<void>;
   getTools?: (options?: { fromOrigins?: string[] }) => Promise<WebMcpRegisteredTool[]>;
+  executeTool?: (
+    tool: WebMcpRegisteredTool,
+    input: string,
+    options?: { signal?: AbortSignal },
+  ) => Promise<unknown>;
 };
 
 interface Document {

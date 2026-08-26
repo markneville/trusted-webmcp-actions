@@ -4,7 +4,7 @@ Status: implementation brief
 
 Prepared: 25 August 2026
 
-Validation status: deterministic browser QA complete; native WebMCP acceptance is still blocked by browser runtime availability.
+Validation status: deterministic QA and native Chrome registry execution complete; ChatGPT model-selection acceptance remains pending.
 
 ## Purpose
 
@@ -106,4 +106,5 @@ This makes the DGM thesis explicit sooner but risks reading like a governance co
 - **Viewports:** 1440×900, 1024×768, 390×844.
 - **Technical checks:** typecheck, lint, unit policy tests, production build, semantic native controls, reduced-motion CSS, native WebMCP discovery, five consecutive full runs.
 - **Open blocker:** GitHub authentication has expired; it blocks public repository creation but not local implementation or browser validation.
-- **Native runtime blocker:** after installing the WebMCP plugin and reloading, neither the connected Chrome 151 tab nor the ChatGPT in-app browser exposes `document.modelContext.registerTool`. The deterministic mock path is not substituted for this acceptance gate.
+- **Native runtime receipt:** after enabling Chrome's WebMCP testing flag, Chrome 151 registered and executed both tools through `document.modelContext.getTools()` and `executeTool()`. Five consecutive native reset-to-stable runs passed, along with limit denial and revocation checks.
+- **Remaining agent gate:** the built-in browser surface was unavailable in the current Codex session, so Sol/Terra tool discovery, selection, and natural-language invocation in ChatGPT remain unproven. Neither the mock harness nor the native registry self-test is substituted for that eval.
