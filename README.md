@@ -4,6 +4,10 @@ A clean-room competition reference app for delegated authority at a WebMCP actio
 
 This first vertical slice lets a browser agent inspect a seeded `checkout-api` incident and, only after a human activates a short-lived reference mandate, shift up to 25% of the page's traffic state to a standby route. The action updates the same live interface the human sees.
 
+**Live demo:** [markneville.github.io/trusted-webmcp-actions](https://markneville.github.io/trusted-webmcp-actions/)
+
+**Native registry check:** [open the labelled WebMCP self-test](https://markneville.github.io/trusted-webmcp-actions/?nativeSelfTest=1)
+
 ## Truth boundary
 
 - Incident metrics are a **seeded reference scenario**, not external production telemetry.
@@ -33,7 +37,7 @@ For local Chrome testing, enable `chrome://flags/#enable-webmcp-testing` and rel
 For a visibly labelled deterministic check through Chrome's real native registry, open:
 
 ```text
-http://localhost:3000/?nativeSelfTest=1
+https://markneville.github.io/trusted-webmcp-actions/?nativeSelfTest=1
 ```
 
 This uses `document.modelContext.getTools()` and `executeTool()` to invoke the registered callbacks. It proves native browser registration and execution, but it does not replace the Sol/Terra model-selection evaluation below.

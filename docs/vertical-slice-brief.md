@@ -4,7 +4,7 @@ Status: implementation brief
 
 Prepared: 25 August 2026
 
-Validation status: deterministic QA and native Chrome registry execution complete; ChatGPT model-selection acceptance remains pending.
+Validation status: deterministic QA, public deployment, and native Chrome registry execution complete; ChatGPT model-selection acceptance remains pending.
 
 ## Purpose
 
@@ -105,6 +105,7 @@ This makes the DGM thesis explicit sooner but risks reading like a governance co
 - **Misinterpretations to test:** external-production claim, client-side hiding mistaken for enforcement, mock mode mistaken for native proof, reset mistaken for rollback.
 - **Viewports:** 1440×900, 1024×768, 390×844.
 - **Technical checks:** typecheck, lint, unit policy tests, production build, semantic native controls, reduced-motion CSS, native WebMCP discovery, five consecutive full runs.
-- **Open blocker:** GitHub authentication has expired; it blocks public repository creation but not local implementation or browser validation.
+- **Public delivery receipt:** [source repository](https://github.com/markneville/trusted-webmcp-actions) and [HTTPS deployment](https://markneville.github.io/trusted-webmcp-actions/) are live. GitHub Pages workflow run `32916347203` deployed commit `c42e782` successfully.
 - **Native runtime receipt:** after enabling Chrome's WebMCP testing flag, Chrome 151 registered and executed both tools through `document.modelContext.getTools()` and `executeTool()`. Five consecutive native reset-to-stable runs passed, along with limit denial and revocation checks.
+- **Public-origin receipt:** the HTTPS deployment repeated native inspect, allowed 20% shift, limit denial without mutation, and revocation tool removal in Chrome.
 - **Remaining agent gate:** the built-in browser surface was unavailable in the current Codex session, so Sol/Terra tool discovery, selection, and natural-language invocation in ChatGPT remain unproven. Neither the mock harness nor the native registry self-test is substituted for that eval.

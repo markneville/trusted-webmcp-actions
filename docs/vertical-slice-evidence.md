@@ -2,7 +2,7 @@
 
 Observed: 25 August 2026
 
-Scope: local competition reference app only
+Scope: public clean-room competition reference app; seeded browser-page effects only
 
 ## Claim status
 
@@ -16,7 +16,8 @@ Scope: local competition reference app only
 | Native reset-to-stable path is repeatable | Passed | Five consecutive native registry runs produced the stable 3.2% / 360 ms / 80–20 state, allowed result, `uiUpdated: true`, and receipt `TWA-REF-0001`. |
 | Native enforcement and lifecycle behaviour | Passed | A second native 20% request was denied with only 5% remaining and no mutation; revocation removed the state-changing tool while retaining `inspect_incident`. |
 | Sol/Terra selects and invokes the tools from natural language in ChatGPT | Not yet passed | The built-in browser surface was unavailable in this Codex session. The native registry self-test proves browser invocation, not model tool-selection accuracy. |
-| Public repository and deployment exist | Not yet passed | The local Git repository exists, but GitHub CLI authentication is expired. No public URL is claimed. |
+| Public repository and deployment exist | Passed | Public source: [markneville/trusted-webmcp-actions](https://github.com/markneville/trusted-webmcp-actions). HTTPS deployment: [Trusted WebMCP Actions](https://markneville.github.io/trusted-webmcp-actions/). GitHub Pages workflow run `32916347203` deployed commit `c42e782`. |
+| Native enforcement works on the public HTTPS origin | Passed | Chrome reported `Native WebMCP` on the public site. Native inspect returned the seeded incident; a 20% shift was allowed with `uiUpdated: true`; a second 20% shift was denied with `uiUpdated: false`; revocation removed the state-changing tool. |
 
 ## Static gates
 
@@ -36,6 +37,7 @@ These gates were rerun after the native self-test controls, mock execution contr
 - No horizontal overflow was observed at tablet or mobile widths.
 - The initial tool roster contained only `inspect_incident`; mandate activation added `shift_incident_traffic`; revocation removed it again.
 - The native Chrome registry completed five consecutive reset-to-stable cycles.
+- The public HTTPS deployment repeated the native allowed, limit-denied, and revoked lifecycle successfully.
 - Chrome produced no application-origin warning or error. One unrelated installed-extension error originated from `chrome-extension://cfnpidifppmenkapgihekkeednfoenal/`.
 - Every human control is a native HTML `button`; the visual trace has a structured text alternative and the stylesheet includes a reduced-motion path.
 
